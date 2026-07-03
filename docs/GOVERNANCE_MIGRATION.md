@@ -21,13 +21,14 @@ yarn op
 The script performs:
 
 1. **Undelegate all** delegated stake.
-2. **Advance the epoch** and call `endEpoch()`.
+2. Require the active staking epoch to have ended, then call `endEpoch()`.
 3. **Atomically** `unstake(amount)`, `approve(ZRX, wZRX, amount)`,
    `wZRX.depositFor(staker, amount)`, `wZRX.delegate(delegatee)`, and reset the
    ZRX approval.
 
-`amount` is determined on-chain — the full delegated stake is wrapped. Simulate
-first:
+`amount` is determined on-chain — the full delegated stake is wrapped. In
+production, wait until the current staking epoch has actually ended before
+broadcasting; fork tests and local simulations may warp time. Simulate first:
 
 ```bash
 STAKER=0x... DELEGATEE=0x... yarn op:sim:wrap:full
@@ -62,9 +63,9 @@ To keep some pools delegated while moving the rest to wZRX:
 STAKER=0x... DELEGATEE=0x... yarn op:wrap:exclude-pools "0x31,0x48"
 ```
 
-The script undelegates from every pool except the excluded ones, advances the
-epoch, calls `endEpoch()`, unstakes the requested amount, then wraps and
-delegates it. Pools are passed as one comma-separated string. Simulate first:
+The script undelegates from every pool except the excluded ones, requires the
+active staking epoch to have ended, calls `endEpoch()`, unstakes the requested
+amount, then wraps and delegates it. Pools are passed as one comma-separated string. Simulate first:
 
 ```bash
 STAKER=0x... DELEGATEE=0x... yarn op:sim:wrap:exclude-pools "0x31,0x48"

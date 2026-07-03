@@ -8,7 +8,8 @@ the Foundry script through the `PRIVATE_KEY` environment variable only for the
 lifetime of the subprocess. The key is never logged or persisted.
 
 For scripted usage you can also export `PRIVATE_KEY` yourself and call a shell
-wrapper directly:
+wrapper directly. The wrappers leave it in the subprocess environment and do not
+convert it into a `--private-key` process argument:
 
 ```bash
 STAKER=0x... PRIVATE_KEY=0x... yarn op:stake-delegate 1000

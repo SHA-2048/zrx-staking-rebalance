@@ -120,8 +120,10 @@ select op in \
   case "$op" in
     stake-delegate)
       ask_amount amount
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op stake-and-delegate.sh "$amount"
       break
@@ -129,8 +131,10 @@ select op in \
 
     delegate-equal)
       ask_amount amount
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op delegate-equal.sh "$amount"
       break
@@ -141,12 +145,14 @@ select op in \
       select mode in "undelegate-all" "redelegate-all" "redelegate-amount"; do
         [ -n "$mode" ] && break
       done
-      local target_amount=0
+      target_amount=0
       if [ "$mode" = "redelegate-amount" ]; then
         ask_amount target_amount
       fi
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op redelegate.sh "$mode" "$target_amount"
       break
@@ -157,21 +163,26 @@ select op in \
       select mode in "liquid" "full" "exclude-pools" "unstake"; do
         [ -n "$mode" ] && break
       done
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op wrap-governance.sh "$mode"
       break
       ;;
 
     wrap-multi-delegate)
-      local delegatees amounts
+      delegatees=""
+      amounts=""
       read -r -p "Delegatees (comma-separated addresses): " delegatees
       read -r -p "Amounts (comma-separated, human readable): " amounts
       export DELEGATEES="$delegatees"
       export AMOUNTS="$amounts"
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op wrap-governance-multi-delegate.sh
       break
@@ -182,11 +193,13 @@ select op in \
       select mode in "propose" "execute"; do
         [ -n "$mode" ] && break
       done
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       if [ "$mode" = "execute" ]; then
-        local proposal_id
+        proposal_id=""
         read -r -p "Proposal ID: " proposal_id
         run_op treasury.sh "$mode" "$proposal_id"
       else
