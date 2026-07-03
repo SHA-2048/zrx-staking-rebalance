@@ -73,8 +73,9 @@ library LibSafe {
     ///           - "approve": broadcast `safe.approveHash(txHash)` from the signer
     ///           - "execute" (default): broadcast `safe.execTransaction(...)` once
     ///             enough owners have approved the hash.
-    ///         The signer's wallet is taken from `msg.sender`, matching Foundry's
-    ///         `--private-key` / `--ledger` / `--trezor` broadcast model.
+    ///         In script mode, Foundry chooses the broadcast signer from `--sender`,
+    ///         a single configured wallet (`--private-key`, `--ledger`, `--trezor`, etc.),
+    ///         or its default sender.
     /// @return executed True if the operation was actually executed (direct path
     ///         or Safe execute mode). False for Safe approve mode.
     function executeCalls(address staker, Call[] storage calls) internal returns (bool executed) {
@@ -126,8 +127,9 @@ library LibSafe {
             // Production mode: the signer only broadcasts one phase at a time.
             string memory safeMode = _safeMode();
             if (_eq(safeMode, "approve")) {
-                require(_isOwner(safe, msg.sender), "LibSafe: signer is not a Safe owner");
-                VM.startBroadcast(msg.sender);
+                address signer = _scriptSigner();
+                require(_isOwner(safe, signer), "LibSafe: signer is not a Safe owner");
+                VM.startBroadcast();
                 ISafe(safe).approveHash(txHash);
                 VM.stopBroadcast();
                 return false;
@@ -177,7 +179,7 @@ library LibSafe {
         address caller
     ) private {
         if (caller == address(0)) {
-            VM.startBroadcast(msg.sender);
+            VM.startBroadcast();
         } else {
             VM.startPrank(caller);
         }
@@ -265,6 +267,13 @@ library LibSafe {
             if (owners[i] == account) return true;
         }
         return false;
+    }
+
+    function _scriptSigner() private returns (address) {
+        address[] memory wallets = VM.getWallets();
+        if (wallets.length == 1) return wallets[0];
+        require(wallets.length == 0, "LibSafe: multiple script signers; pass --sender");
+        return msg.sender;
     }
 
     function _safeMode() private view returns (string memory) {
