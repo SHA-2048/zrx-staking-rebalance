@@ -153,8 +153,11 @@ LEDGER=1 yarn op:treasury:propose
 ```
 
 The same pattern applies to staking, redelegation, wrapping, and treasury
-operations. During the approve phase the script logs that the execute phase is
-still pending and does not claim the operation is complete.
+operations. Dry-run simulations auto-approve the Safe hash on the local fork so
+the full Safe execution can be inspected before any owner broadcasts an approval.
+Broadcast and resume runs still require real on-chain Safe owner approvals.
+During the approve phase the script logs that the execute phase is still pending
+and does not claim the operation is complete.
 
 ## Contracts
 
