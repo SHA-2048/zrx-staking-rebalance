@@ -115,12 +115,13 @@ library LibSafe {
         bytes32 txHash = _getSafeTxHash(safe, execData);
 
         bool isScript = VM.isContext(VmSafe.ForgeContext.ScriptGroup);
+        bool isScriptDryRun = VM.isContext(VmSafe.ForgeContext.ScriptDryRun);
         address[] memory owners = ISafe(safe).getOwners();
         uint256 threshold = ISafe(safe).getThreshold();
 
-        if (!isScript) {
-            // Test mode: run the full Safe flow in one go. Approve from every
-            // owner and then execute, so tests don't need env-var coordination.
+        if (!isScript || isScriptDryRun) {
+            // Tests and dry-run simulations run the full Safe flow locally.
+            // Broadcast/resume still require real on-chain owner approvals.
             _approveHashFromOwners(safe, owners, txHash);
         } else {
             // Production mode: the signer only broadcasts one phase at a time.
