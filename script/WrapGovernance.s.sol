@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Script, console2} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {Constants} from "../src/constants/Constants.sol";
 import {LibStaking} from "../src/libraries/LibStaking.sol";
 import {LibSafe} from "../src/libraries/LibSafe.sol";
@@ -106,7 +107,7 @@ contract WrapGovernance is Script {
 
         WrapState memory state = _readWrapState(staker);
 
-        _advanceEpoch();
+        _ensureEpochEnded();
 
         delete _calls;
         _calls.push(
@@ -159,7 +160,7 @@ contract WrapGovernance is Script {
 
         WrapState memory state = _readWrapState(staker);
 
-        _advanceEpoch();
+        _ensureEpochEnded();
 
         delete _calls;
         _calls.push(
@@ -231,11 +232,16 @@ contract WrapGovernance is Script {
         );
     }
 
-    function _advanceEpoch() private {
+    function _ensureEpochEnded() private {
         IStakingProxy stake = IStakingProxy(Constants.STAKING_PROXY);
-        uint256 startTime = stake.currentEpochStartTimeInSeconds();
-        uint256 duration = stake.epochDurationInSeconds();
-        vm.warp(startTime + duration + 1);
+        uint256 epochEndTime = stake.currentEpochStartTimeInSeconds() + stake.epochDurationInSeconds();
+        if (vm.isContext(VmSafe.ForgeContext.ScriptGroup)) {
+            // forge-lint: disable-next-item(block-timestamp)
+            // Production scripts must gate endEpoch() on the real chain timestamp.
+            require(block.timestamp > epochEndTime, "WrapGovernance: epoch not ended");
+        } else {
+            vm.warp(epochEndTime + 1);
+        }
     }
 
     function _verifyWrap(
