@@ -26,9 +26,8 @@ CONTRACT_NAME="$(basename "$SCRIPT" .s.sol)"
 shift
 
 SIGNER_FLAGS=()
-if [ -n "${PRIVATE_KEY:-}" ]; then
-  SIGNER_FLAGS+=(--private-key "$PRIVATE_KEY")
-fi
+# Keep PRIVATE_KEY out of process arguments. Solidity scripts read it from the
+# subprocess environment and call vm.startBroadcast(privateKey) internally.
 if [ -n "${LEDGER:-}" ]; then
   SIGNER_FLAGS+=(--ledger)
 fi
