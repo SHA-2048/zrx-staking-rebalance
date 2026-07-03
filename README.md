@@ -217,9 +217,12 @@ be run in two phases:
    ```
 
 The same two-phase flow applies to `redelegate`, `wrap`, `treasury`, and any
-other operation where the caller is a Safe. If the operation only reaches the
-approve phase, the script logs that the execute phase is still pending and does
-not emit a misleading "created"/"executed" message.
+other operation where the caller is a Safe. Dry-run simulations (`op:sim:*`, no
+`--broadcast`) auto-approve the Safe hash on the local fork so the full Safe
+execution can be inspected before any owner broadcasts an approval. Broadcast
+and resume runs still require real on-chain Safe owner approvals. If the operation
+only reaches the approve phase, the script logs that the execute phase is still
+pending and does not emit a misleading "created"/"executed" message.
 
 ## Tests
 

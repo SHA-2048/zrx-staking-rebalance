@@ -73,9 +73,10 @@ library LibSafe {
     ///           - "approve": broadcast `safe.approveHash(txHash)` from the signer
     ///           - "execute" (default): broadcast `safe.execTransaction(...)` once
     ///             enough owners have approved the hash.
-    ///         In script mode, Foundry chooses the broadcast signer from `--sender`,
-    ///         a single configured wallet (`--private-key`, `--ledger`, `--trezor`, etc.),
-    ///         or its default sender.
+    ///         In script mode, the signer is derived from the `PRIVATE_KEY` env var
+    ///         if set, otherwise from a single configured wallet (`--sender`,
+    ///         `--private-key`, `--ledger`, `--trezor`, etc.), or Foundry's default
+    ///         sender.
     /// @return executed True if the operation was actually executed (direct path
     ///         or Safe execute mode). False for Safe approve mode.
     function executeCalls(address staker, Call[] storage calls) internal returns (bool executed) {
@@ -90,7 +91,7 @@ library LibSafe {
     function _executeCallsDirectly(address staker, Call[] storage calls) private {
         bool isScript = VM.isContext(VmSafe.ForgeContext.ScriptGroup);
         if (isScript) {
-            VM.startBroadcast(staker);
+            _startBroadcastFrom(staker);
         } else {
             VM.startPrank(staker);
         }
@@ -116,20 +117,21 @@ library LibSafe {
         bytes32 txHash = _getSafeTxHash(safe, execData);
 
         bool isScript = VM.isContext(VmSafe.ForgeContext.ScriptGroup);
+        bool isScriptDryRun = VM.isContext(VmSafe.ForgeContext.ScriptDryRun);
         address[] memory owners = ISafe(safe).getOwners();
         uint256 threshold = ISafe(safe).getThreshold();
 
-        if (!isScript) {
-            // Test mode: run the full Safe flow in one go. Approve from every
-            // owner and then execute, so tests don't need env-var coordination.
+        if (!isScript || isScriptDryRun) {
+            // Tests and dry-run simulations run the full Safe flow locally.
+            // Broadcast/resume still require real on-chain owner approvals.
             _approveHashFromOwners(safe, owners, txHash);
         } else {
             // Production mode: the signer only broadcasts one phase at a time.
             string memory safeMode = _safeMode();
             if (_eq(safeMode, "approve")) {
-                address signer = _scriptSigner();
+                address signer = _effectiveSigner();
                 require(_isOwner(safe, signer), "LibSafe: signer is not a Safe owner");
-                VM.startBroadcast();
+                _startBroadcastFrom(signer);
                 ISafe(safe).approveHash(txHash);
                 VM.stopBroadcast();
                 return false;
@@ -144,6 +146,7 @@ library LibSafe {
         );
 
         _execSafeTransaction(safe, execData, signatures, isScript ? address(0) : owners[0]);
+        return true;
     }
 
     function _getSafeTxHash(address safe, bytes memory execData) private view returns (bytes32) {
@@ -179,11 +182,11 @@ library LibSafe {
         address caller
     ) private {
         if (caller == address(0)) {
-            VM.startBroadcast();
+            _startBroadcast();
         } else {
             VM.startPrank(caller);
         }
-        (bool success,) = safe.call(
+        (bool success, bytes memory result) = safe.call(
             abi.encodeWithSelector(
                 ISafe.execTransaction.selector,
                 Constants.SAFE_MULTISEND_CALL_ONLY,
@@ -199,6 +202,7 @@ library LibSafe {
             )
         );
         require(success, "LibSafe: Safe execution failed");
+        require(abi.decode(result, (bool)), "LibSafe: Safe transaction returned false");
         if (caller == address(0)) {
             VM.stopBroadcast();
         } else {
@@ -274,6 +278,31 @@ library LibSafe {
         if (wallets.length == 1) return wallets[0];
         require(wallets.length == 0, "LibSafe: multiple script signers; pass --sender");
         return msg.sender;
+    }
+
+    function _startBroadcastFrom(address expectedSigner) private {
+        if (VM.envExists("PRIVATE_KEY")) {
+            uint256 privateKey = VM.envUint("PRIVATE_KEY");
+            require(VM.addr(privateKey) == expectedSigner, "LibSafe: PRIVATE_KEY signer mismatch");
+            VM.startBroadcast(privateKey);
+        } else {
+            VM.startBroadcast(expectedSigner);
+        }
+    }
+
+    function _startBroadcast() private {
+        if (VM.envExists("PRIVATE_KEY")) {
+            VM.startBroadcast(VM.envUint("PRIVATE_KEY"));
+        } else {
+            VM.startBroadcast(msg.sender);
+        }
+    }
+
+    function _effectiveSigner() private returns (address) {
+        if (VM.envExists("PRIVATE_KEY")) {
+            return VM.addr(VM.envUint("PRIVATE_KEY"));
+        }
+        return _scriptSigner();
     }
 
     function _safeMode() private view returns (string memory) {
