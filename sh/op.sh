@@ -145,7 +145,7 @@ select op in \
       select mode in "undelegate-all" "redelegate-all" "redelegate-amount"; do
         [ -n "$mode" ] && break
       done
-      local target_amount=0
+      target_amount=0
       if [ "$mode" = "redelegate-amount" ]; then
         ask_amount target_amount
       fi
@@ -173,7 +173,8 @@ select op in \
       ;;
 
     wrap-multi-delegate)
-      local delegatees amounts
+      delegatees=""
+      amounts=""
       read -r -p "Delegatees (comma-separated addresses): " delegatees
       read -r -p "Amounts (comma-separated, human readable): " amounts
       export DELEGATEES="$delegatees"
@@ -198,7 +199,7 @@ select op in \
       fi
       confirm
       if [ "$mode" = "execute" ]; then
-        local proposal_id
+        proposal_id=""
         read -r -p "Proposal ID: " proposal_id
         run_op treasury.sh "$mode" "$proposal_id"
       else
