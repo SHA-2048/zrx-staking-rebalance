@@ -142,6 +142,7 @@ library LibSafe {
         );
 
         _execSafeTransaction(safe, execData, signatures, isScript ? address(0) : owners[0]);
+        return true;
     }
 
     function _getSafeTxHash(address safe, bytes memory execData) private view returns (bytes32) {
@@ -181,7 +182,7 @@ library LibSafe {
         } else {
             VM.startPrank(caller);
         }
-        (bool success,) = safe.call(
+        (bool success, bytes memory result) = safe.call(
             abi.encodeWithSelector(
                 ISafe.execTransaction.selector,
                 Constants.SAFE_MULTISEND_CALL_ONLY,
@@ -197,6 +198,7 @@ library LibSafe {
             )
         );
         require(success, "LibSafe: Safe execution failed");
+        require(abi.decode(result, (bool)), "LibSafe: Safe transaction returned false");
         if (caller == address(0)) {
             VM.stopBroadcast();
         } else {
