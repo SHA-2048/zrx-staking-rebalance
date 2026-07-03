@@ -89,7 +89,7 @@ library LibSafe {
     function _executeCallsDirectly(address staker, Call[] storage calls) private {
         bool isScript = VM.isContext(VmSafe.ForgeContext.ScriptGroup);
         if (isScript) {
-            VM.startBroadcast(staker);
+            _startBroadcastFrom(staker);
         } else {
             VM.startPrank(staker);
         }
@@ -126,8 +126,9 @@ library LibSafe {
             // Production mode: the signer only broadcasts one phase at a time.
             string memory safeMode = _safeMode();
             if (_eq(safeMode, "approve")) {
-                require(_isOwner(safe, msg.sender), "LibSafe: signer is not a Safe owner");
-                VM.startBroadcast(msg.sender);
+                address signer = _broadcastSigner(msg.sender);
+                require(_isOwner(safe, signer), "LibSafe: signer is not a Safe owner");
+                _startBroadcastFrom(signer);
                 ISafe(safe).approveHash(txHash);
                 VM.stopBroadcast();
                 return false;
@@ -142,6 +143,7 @@ library LibSafe {
         );
 
         _execSafeTransaction(safe, execData, signatures, isScript ? address(0) : owners[0]);
+        return true;
     }
 
     function _getSafeTxHash(address safe, bytes memory execData) private view returns (bytes32) {
@@ -177,11 +179,11 @@ library LibSafe {
         address caller
     ) private {
         if (caller == address(0)) {
-            VM.startBroadcast(msg.sender);
+            _startBroadcast();
         } else {
             VM.startPrank(caller);
         }
-        (bool success,) = safe.call(
+        (bool success, bytes memory result) = safe.call(
             abi.encodeWithSelector(
                 ISafe.execTransaction.selector,
                 Constants.SAFE_MULTISEND_CALL_ONLY,
@@ -197,6 +199,7 @@ library LibSafe {
             )
         );
         require(success, "LibSafe: Safe execution failed");
+        require(abi.decode(result, (bool)), "LibSafe: Safe transaction returned false");
         if (caller == address(0)) {
             VM.stopBroadcast();
         } else {
@@ -265,6 +268,31 @@ library LibSafe {
             if (owners[i] == account) return true;
         }
         return false;
+    }
+
+    function _startBroadcastFrom(address expectedSigner) private {
+        if (VM.envExists("PRIVATE_KEY")) {
+            uint256 privateKey = VM.envUint("PRIVATE_KEY");
+            require(VM.addr(privateKey) == expectedSigner, "LibSafe: PRIVATE_KEY signer mismatch");
+            VM.startBroadcast(privateKey);
+        } else {
+            VM.startBroadcast(expectedSigner);
+        }
+    }
+
+    function _startBroadcast() private {
+        if (VM.envExists("PRIVATE_KEY")) {
+            VM.startBroadcast(VM.envUint("PRIVATE_KEY"));
+        } else {
+            VM.startBroadcast(msg.sender);
+        }
+    }
+
+    function _broadcastSigner(address fallbackSigner) private view returns (address) {
+        if (VM.envExists("PRIVATE_KEY")) {
+            return VM.addr(VM.envUint("PRIVATE_KEY"));
+        }
+        return fallbackSigner;
     }
 
     function _safeMode() private view returns (string memory) {
