@@ -120,8 +120,10 @@ select op in \
   case "$op" in
     stake-delegate)
       ask_amount amount
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op stake-and-delegate.sh "$amount"
       break
@@ -129,8 +131,10 @@ select op in \
 
     delegate-equal)
       ask_amount amount
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op delegate-equal.sh "$amount"
       break
@@ -145,8 +149,10 @@ select op in \
       if [ "$mode" = "redelegate-amount" ]; then
         ask_amount target_amount
       fi
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op redelegate.sh "$mode" "$target_amount"
       break
@@ -157,8 +163,10 @@ select op in \
       select mode in "liquid" "full" "exclude-pools" "unstake"; do
         [ -n "$mode" ] && break
       done
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op wrap-governance.sh "$mode"
       break
@@ -170,8 +178,10 @@ select op in \
       read -r -p "Amounts (comma-separated, human readable): " amounts
       export DELEGATEES="$delegatees"
       export AMOUNTS="$amounts"
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       run_op wrap-governance-multi-delegate.sh
       break
@@ -182,8 +192,10 @@ select op in \
       select mode in "propose" "execute"; do
         [ -n "$mode" ] && break
       done
-      ask_signer
       ask_mode
+      if [ "$EXECUTE_MODE" = true ]; then
+        ask_signer
+      fi
       confirm
       if [ "$mode" = "execute" ]; then
         local proposal_id
