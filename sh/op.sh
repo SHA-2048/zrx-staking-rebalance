@@ -19,6 +19,7 @@ ask_amount() {
 
 # Prompt for the signer and export the relevant environment variables.
 ask_signer() {
+  local key
   echo ""
   echo "Select signer:"
   select method in "private-key" "ledger" "trezor" "mnemonic"; do
@@ -31,6 +32,7 @@ ask_signer() {
           exit 1
         fi
         export PRIVATE_KEY="$key"
+        unset key
         break
         ;;
       ledger)
@@ -105,6 +107,9 @@ run_op() {
     echo "  mode: simulate"
   fi
   "$(dirname "$0")/$script" "${flags[@]}" "$@"
+
+  # Clear signer material from the parent shell as soon as the operation ends.
+  unset PRIVATE_KEY LEDGER TREZOR MNEMONIC_INDEX HD_PATHS
 }
 
 echo "Select operation:"
